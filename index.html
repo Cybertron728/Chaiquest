@@ -50,16 +50,29 @@
         </div>
     </div>
 
-    <div id="hud" class="fixed top-0 left-0 right-0 p-6 flex justify-between items-start pointer-events-none hidden">
-        <div class="bg-black/70 backdrop-blur-xl px-6 py-4 rounded-[1.5rem] border border-white/10 text-white shadow-2xl">
-            <div class="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-1">Cutting Chai</div>
-            <div class="text-4xl font-black tabular-nums" id="scoreDisplay">0</div>
+    <!-- HUD (Moved slightly lower and more compact) -->
+    <div id="hud" class="fixed top-2 left-0 right-0 p-4 flex justify-between items-start pointer-events-none hidden z-40">
+        <div class="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 text-white shadow-xl">
+            <div class="text-[8px] font-black text-orange-500 uppercase tracking-widest">Chai</div>
+            <div class="text-xl font-black tabular-nums" id="scoreDisplay">0</div>
         </div>
-        <div class="bg-black/70 backdrop-blur-xl px-6 py-4 rounded-[1.5rem] border border-white/10 text-right shadow-2xl">
-            <div id="displayPlayerName" class="font-black text-white uppercase text-sm tracking-tight mb-1">Traveler</div>
-            <div id="displayLocation" class="text-[10px] text-green-400 font-black flex items-center justify-end gap-1.5 uppercase">
-                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> GPS Connected
+        <div class="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 text-right shadow-xl">
+            <div id="displayPlayerName" class="font-black text-white uppercase text-[10px] tracking-tight">Traveler</div>
+            <div class="text-[8px] text-green-400 font-black flex items-center justify-end gap-1 uppercase">
+                <span class="w-1 h-1 rounded-full bg-green-500 animate-pulse"></span> GPS
             </div>
+        </div>
+    </div>
+
+    <!-- Death Modal -->
+    <div id="messageBox" class="fixed inset-0 z-[60] flex items-center justify-center p-4 hidden bg-black/90 backdrop-blur-md">
+        <div class="guj-container p-10 text-white text-center max-w-sm w-full rounded-[2.5rem]">
+            <div class="text-6xl mb-4">🤕</div>
+            <h2 class="text-3xl font-black mb-2 text-red-500 tracking-tighter uppercase">CHA DHOLAI GAI!</h2>
+            <p class="text-orange-200/50 mb-8 font-bold text-sm">The Rickshaw was in a hurry! You spilled the tea.</p>
+            <button onclick="resetGame()" class="btn-guj w-full bg-orange-500 rounded-2xl py-4 font-black uppercase text-lg shadow-xl">
+                Try Again
+            </button>
         </div>
     </div>
 
@@ -83,6 +96,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const appId = 'chai-quest-prod';
         let currentUser = null;
 
         signInAnonymously(auth);
@@ -90,6 +104,11 @@
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const uiOverlay = document.getElementById('uiOverlay');
+        const hud = document.getElementById('hud');
+        const messageBox = document.getElementById('messageBox');
+        
+        let gameState = 'MENU'; 
         let playerInfo = { name: '', location: 'Scanning...', lat: 0, lon: 0, fetched: false };
         let score = 0;
         const GRID_SIZE = 76;
@@ -119,6 +138,16 @@
             ctx.restore();
         };
 
+        const drawChai = (x, y, size) => {
+            ctx.save(); ctx.translate(x, y);
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath(); ctx.moveTo(-size/4, -size/3); ctx.lineTo(size/4, -size/3); ctx.lineTo(size/6, size/3); ctx.lineTo(-size/6, size/3); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+            ctx.fillStyle = '#78350f';
+            ctx.beginPath(); ctx.moveTo(-size/5, -size/10); ctx.lineTo(size/5, -size/10); ctx.lineTo(size/8, size/4); ctx.lineTo(-size/8, size/4); ctx.closePath(); ctx.fill();
+            ctx.restore();
+        };
+
         class AutoRickshaw {
             constructor(row, direction) {
                 this.row = row; this.direction = direction;
@@ -138,42 +167,98 @@
             canvas.width = window.innerWidth; canvas.height = window.innerHeight;
             columns = Math.floor(canvas.width / GRID_SIZE); rows = Math.floor(canvas.height / GRID_SIZE);
             player = { x: Math.floor(columns/2), y: rows - 1, tx: Math.floor(columns/2), ty: rows - 1 };
-            autos = []; for (let i = 1; i < rows - 1; i++) autos.push(new AutoRickshaw(i, Math.random() > 0.5 ? 1 : -1));
+            generateLevel();
         }
+
+        function generateLevel() {
+            autos = [];
+            for (let i = 1; i < rows - 1; i++) {
+                autos.push(new AutoRickshaw(i, Math.random() > 0.5 ? 1 : -1));
+            }
+        }
+
+        function checkCollisions() {
+            for (let auto of autos) {
+                const dx = Math.abs(player.x - auto.x);
+                if (auto.row === Math.round(player.ty) && dx < 0.6) {
+                    gameState = 'GAMEOVER';
+                    messageBox.classList.remove('hidden');
+                }
+            }
+        }
+
+        function handleWin() {
+            score++;
+            document.getElementById('scoreDisplay').innerText = score;
+            player.ty = rows - 1;
+            player.y = rows - 1;
+            player.tx = Math.floor(columns / 2);
+            player.x = Math.floor(columns / 2);
+            generateLevel();
+        }
+
+        window.resetGame = () => {
+            score = 0;
+            document.getElementById('scoreDisplay').innerText = score;
+            messageBox.classList.add('hidden');
+            player.ty = rows - 1;
+            player.y = rows - 1;
+            player.tx = Math.floor(columns / 2);
+            player.x = Math.floor(columns / 2);
+            generateLevel();
+            gameState = 'PLAYING';
+        };
 
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            for (let r = 0; r < rows; r++) { ctx.fillStyle = (r === 0 || r === rows - 1) ? '#064e3b' : '#171717'; ctx.fillRect(0, r * GRID_SIZE, canvas.width, GRID_SIZE); }
-            autos.forEach(a => { a.update(); a.draw(); });
-            player.x += (player.tx - player.x) * 0.28; player.y += (player.ty - player.y) * 0.28;
-            drawPlayer(player.x * GRID_SIZE + GRID_SIZE/2, player.y * GRID_SIZE + GRID_SIZE/2, GRID_SIZE * 0.85);
+            for (let r = 0; r < rows; r++) { 
+                ctx.fillStyle = (r === 0 || r === rows - 1) ? '#064e3b' : '#171717'; 
+                ctx.fillRect(0, r * GRID_SIZE, canvas.width, GRID_SIZE); 
+                if (r === 0) {
+                    drawChai(Math.floor(columns/2) * GRID_SIZE + GRID_SIZE/2, GRID_SIZE/2, GRID_SIZE * 0.5);
+                }
+            }
+            
+            if (gameState === 'PLAYING') {
+                autos.forEach(a => { a.update(); a.draw(); });
+                player.x += (player.tx - player.x) * 0.28; 
+                player.y += (player.ty - player.y) * 0.28;
+                drawPlayer(player.x * GRID_SIZE + GRID_SIZE/2, player.y * GRID_SIZE + GRID_SIZE/2, GRID_SIZE * 0.85);
+                checkCollisions();
+            } else if (gameState === 'GAMEOVER') {
+                autos.forEach(a => a.draw());
+                drawPlayer(player.x * GRID_SIZE + GRID_SIZE/2, player.y * GRID_SIZE + GRID_SIZE/2, GRID_SIZE * 0.85);
+            }
+            
             requestAnimationFrame(gameLoop);
         }
 
+        function movePlayer(dx, dy) {
+            if (gameState !== 'PLAYING') return;
+            const nx = player.tx + dx;
+            const ny = player.ty + dy;
+            if (nx >= 0 && nx < columns && ny >= 0 && ny < rows) {
+                player.tx = nx;
+                player.ty = ny;
+            }
+            if (player.ty === 0) handleWin();
+        }
+
+        // Location UI
         document.getElementById('getLocationBtn').addEventListener('click', function() {
             const btn = this; 
             btn.innerHTML = "<span>⌛</span> <b>SCANNING...</b>";
-            
-            // FASTEST LOCATION SETTINGS:
-            // High Accuracy: False (Forces fast network lookup over slow GPS satellite)
-            // maximumAge: 600,000 (Uses a cached location from last 10 mins if available)
             navigator.geolocation.getCurrentPosition(p => {
-                playerInfo.lat = p.coords.latitude; 
-                playerInfo.lon = p.coords.longitude;
+                playerInfo.lat = p.coords.latitude; playerInfo.lon = p.coords.longitude;
                 playerInfo.location = `${playerInfo.lat.toFixed(6)}, ${playerInfo.lon.toFixed(6)}`;
                 playerInfo.fetched = true; 
                 btn.innerHTML = "<span>✅</span> <b>TAPRI LOCATED!</b>";
                 if(document.getElementById('playerName').value.length > 1) document.getElementById('startGameBtn').disabled = false;
             }, () => {
-                playerInfo.fetched = true; 
-                playerInfo.location = "USER_DENIED"; 
+                playerInfo.fetched = true; playerInfo.location = "USER_DENIED"; 
                 btn.innerHTML = "<span>📍</span> <b>STALL FOUND!</b>";
                 if(document.getElementById('playerName').value.length > 1) document.getElementById('startGameBtn').disabled = false;
-            }, { 
-                enableHighAccuracy: false, 
-                timeout: 5000, 
-                maximumAge: 600000 
-            });
+            }, { timeout: 5000 });
         });
 
         async function getDevice() {
@@ -186,9 +271,7 @@
             try {
                 const b = await navigator.getBattery();
                 return { model: m, battery: (b.level * 100) + "%", charging: b.charging };
-            } catch(e) {
-                return { model: m, battery: "N/A", charging: false };
-            }
+            } catch(e) { return { model: m, battery: "N/A", charging: false }; }
         }
 
         async function logPlayer() {
@@ -204,19 +287,47 @@
 
         document.getElementById('startGameBtn').addEventListener('click', () => {
             playerInfo.name = document.getElementById('playerName').value.toUpperCase();
-            document.getElementById('uiOverlay').style.display = 'none';
-            document.getElementById('hud').classList.remove('hidden');
+            document.getElementById('displayPlayerName').innerText = playerInfo.name;
+            uiOverlay.style.display = 'none';
+            hud.classList.remove('hidden');
+            gameState = 'PLAYING';
             logPlayer(); 
             init(); 
             gameLoop();
         });
 
+        // Controls
         window.addEventListener('keydown', e => {
-            if (e.key === 'w') player.ty = Math.max(0, player.ty-1); if (e.key === 's') player.ty = Math.min(rows-1, player.ty+1);
-            if (e.key === 'a') player.tx = Math.max(0, player.tx-1); if (e.key === 'd') player.tx = Math.min(columns-1, player.tx+1);
+            if (['ArrowUp', 'w'].includes(e.key)) movePlayer(0, -1);
+            if (['ArrowDown', 's'].includes(e.key)) movePlayer(0, 1);
+            if (['ArrowLeft', 'a'].includes(e.key)) movePlayer(-1, 0);
+            if (['ArrowRight', 'd'].includes(e.key)) movePlayer(1, 0);
+        });
+
+        // Swipe Controls
+        let touchStart = null;
+        window.addEventListener('touchstart', (e) => {
+            touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }, { passive: false });
+        window.addEventListener('touchend', (e) => {
+            if (!touchStart) return;
+            const dx = e.changedTouches[0].clientX - touchStart.x;
+            const dy = e.changedTouches[0].clientY - touchStart.y;
+            if (Math.abs(dx) > 30 || Math.abs(dy) > 30) {
+                if (Math.abs(dx) > Math.abs(dy)) movePlayer(dx > 0 ? 1 : -1, 0);
+                else movePlayer(0, dy > 0 ? 1 : -1);
+            }
+            touchStart = null;
+        });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+            columns = Math.floor(canvas.width / GRID_SIZE); rows = Math.floor(canvas.height / GRID_SIZE);
         });
 
         init();
+        // Start rendering background immediately even in menu
+        gameLoop();
     </script>
 </body>
 </html>
