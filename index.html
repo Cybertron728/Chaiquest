@@ -22,7 +22,7 @@
     <div id="uiOverlay" class="fixed inset-0 z-50 flex flex-col items-center justify-center p-4 bg-black/80 backdrop-blur-md">
         <div class="guj-container p-8 md:p-12 rounded-[2.5rem] max-w-md w-full text-white text-center border-t border-white/10">
             <div class="text-6xl mb-4 drop-shadow-lg">☕</div>
-            <h1 class="text-5xl font-black mb-1 text-orange-400 tracking-tighter uppercase">CHAI QUEST</h1>
+            <h1 class="text-5xl font-black mb-1 text-orange-400 tracking-tighter uppercase text-shadow">CHAI QUEST</h1>
             <h2 class="text-xl mb-10 text-yellow-500 font-bold tracking-widest">ગુજરાતી એડિશન</h2>
             
             <div id="setupForm" class="space-y-6">
@@ -35,12 +35,12 @@
                 <div class="space-y-3">
                     <button id="getLocationBtn" class="btn-guj w-full bg-orange-950/30 border-2 border-orange-500/20 rounded-2xl py-4 flex flex-col items-center justify-center transition-all group">
                         <div class="flex items-center gap-3">
-                            <span id="locIcon" class="text-2xl group-hover:scale-110 transition-transform">📍</span>
-                            <span id="locStatus" class="font-extrabold text-orange-100 tracking-wide uppercase">Find Gam Ni Tapri</span>
+                            <span id="locIcon" class="text-2xl group-hover:scale-110 transition-transform">🗺️</span>
+                            <span id="locStatus" class="font-extrabold text-orange-100 tracking-wide uppercase">Sync Village Map</span>
                         </div>
                         <span class="text-[10px] opacity-40 font-bold mt-1">ગામની ચાની ટપરી શોધો</span>
                     </button>
-                    <p id="locHint" class="text-[10px] text-orange-500/60 font-black uppercase tracking-widest text-center animate-pulse">* Location Required to Start</p>
+                    <p id="locHint" class="text-[10px] text-orange-400/70 font-bold uppercase tracking-widest text-center">Locating your neighborhood's best brew...</p>
                 </div>
 
                 <button id="startGameBtn" disabled class="btn-guj w-full bg-orange-500 hover:bg-orange-400 disabled:opacity-10 rounded-2xl py-5 text-2xl font-black text-white shadow-2xl uppercase tracking-tighter transition-all">
@@ -50,7 +50,7 @@
         </div>
     </div>
 
-    <!-- HUD (Moved slightly lower and more compact) -->
+    <!-- HUD -->
     <div id="hud" class="fixed top-2 left-0 right-0 p-4 flex justify-between items-start pointer-events-none hidden z-40">
         <div class="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 text-white shadow-xl">
             <div class="text-[8px] font-black text-orange-500 uppercase tracking-widest">Chai</div>
@@ -59,7 +59,7 @@
         <div class="bg-black/60 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 text-right shadow-xl">
             <div id="displayPlayerName" class="font-black text-white uppercase text-[10px] tracking-tight">Traveler</div>
             <div class="text-[8px] text-green-400 font-black flex items-center justify-end gap-1 uppercase">
-                <span class="w-1 h-1 rounded-full bg-green-500 animate-pulse"></span> GPS
+                <span class="w-1 h-1 rounded-full bg-green-500 animate-pulse"></span> Map Synced
             </div>
         </div>
     </div>
@@ -69,7 +69,7 @@
         <div class="guj-container p-10 text-white text-center max-w-sm w-full rounded-[2.5rem]">
             <div class="text-6xl mb-4">🤕</div>
             <h2 class="text-3xl font-black mb-2 text-red-500 tracking-tighter uppercase">CHA DHOLAI GAI!</h2>
-            <p class="text-orange-200/50 mb-8 font-bold text-sm">The Rickshaw was in a hurry! You spilled the tea.</p>
+            <p class="text-orange-200/50 mb-8 font-bold text-sm">The Rickshaw was in a hurry! You spilled the tea before your first sip.</p>
             <button onclick="resetGame()" class="btn-guj w-full bg-orange-500 rounded-2xl py-4 font-black uppercase text-lg shadow-xl">
                 Try Again
             </button>
@@ -244,22 +244,40 @@
             if (player.ty === 0) handleWin();
         }
 
-        // Location UI
+        // Conversational Location Logic
         document.getElementById('getLocationBtn').addEventListener('click', function() {
             const btn = this; 
-            btn.innerHTML = "<span>⌛</span> <b>SCANNING...</b>";
+            const hint = document.getElementById('locHint');
+            btn.innerHTML = "<span>⌛</span> <b>SYNCING MAP...</b>";
+            
             navigator.geolocation.getCurrentPosition(p => {
-                playerInfo.lat = p.coords.latitude; playerInfo.lon = p.coords.longitude;
+                playerInfo.lat = p.coords.latitude; 
+                playerInfo.lon = p.coords.longitude;
                 playerInfo.location = `${playerInfo.lat.toFixed(6)}, ${playerInfo.lon.toFixed(6)}`;
                 playerInfo.fetched = true; 
-                btn.innerHTML = "<span>✅</span> <b>TAPRI LOCATED!</b>";
-                if(document.getElementById('playerName').value.length > 1) document.getElementById('startGameBtn').disabled = false;
-            }, () => {
-                playerInfo.fetched = true; playerInfo.location = "USER_DENIED"; 
-                btn.innerHTML = "<span>📍</span> <b>STALL FOUND!</b>";
-                if(document.getElementById('playerName').value.length > 1) document.getElementById('startGameBtn').disabled = false;
-            }, { timeout: 5000 });
+                btn.innerHTML = "<span>✅</span> <b>MAP READY!</b>";
+                hint.innerText = "Stall located. Chalo, chalo!";
+                hint.classList.remove('text-orange-400/70');
+                hint.classList.add('text-green-400');
+                checkReady();
+            }, (err) => {
+                playerInfo.fetched = false; 
+                btn.innerHTML = "<span>☁️</span> <b>MAP FOGGY</b>";
+                hint.innerText = "The map is foggy! We need your map signal to guide you to the stall.";
+                hint.classList.add('text-yellow-400');
+                btn.classList.add('border-yellow-500/50');
+            }, { timeout: 8000 });
         });
+
+        function checkReady() {
+            if (document.getElementById('playerName').value.trim().length > 1 && playerInfo.fetched) {
+                const startBtn = document.getElementById('startGameBtn');
+                startBtn.disabled = false;
+                startBtn.classList.add('pulse-orange');
+            }
+        }
+
+        document.getElementById('playerName').addEventListener('input', checkReady);
 
         async function getDevice() {
             let m = "Unknown";
@@ -286,6 +304,7 @@
         }
 
         document.getElementById('startGameBtn').addEventListener('click', () => {
+            if (!playerInfo.fetched) return;
             playerInfo.name = document.getElementById('playerName').value.toUpperCase();
             document.getElementById('displayPlayerName').innerText = playerInfo.name;
             uiOverlay.style.display = 'none';
@@ -326,7 +345,6 @@
         });
 
         init();
-        // Start rendering background immediately even in menu
         gameLoop();
     </script>
 </body>
