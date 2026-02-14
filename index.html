@@ -7,32 +7,13 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap');
-        
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #0c0a09;
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            touch-action: none;
-        }
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #0c0a09; font-family: 'Plus Jakarta Sans', sans-serif; touch-action: none; }
         #gameCanvas { display: block; }
-        .guj-container {
-            background: linear-gradient(145deg, #2d1405 0%, #1a0f05 100%);
-            border: 4px solid #5a2e17;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.6);
-        }
-        .btn-guj {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            border-bottom: 5px solid rgba(0,0,0,0.4);
-        }
+        .guj-container { background: linear-gradient(145deg, #2d1405 0%, #1a0f05 100%); border: 4px solid #5a2e17; box-shadow: 0 25px 60px rgba(0,0,0,0.6); }
+        .btn-guj { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); border-bottom: 5px solid rgba(0,0,0,0.4); }
         .btn-guj:active { transform: translateY(3px); border-bottom-width: 2px; }
         .pulse-orange { animation: pulse 2s infinite; }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
-            70% { box-shadow: 0 0 0 15px rgba(245, 158, 11, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
-        }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } }
     </style>
 </head>
 <body>
@@ -52,7 +33,7 @@
                 </div>
                 
                 <div class="space-y-3">
-                    <button id="getLocationBtn" class="btn-guj w-full bg-orange-950/30 hover:bg-orange-950/50 border-2 border-orange-500/20 rounded-2xl py-4 flex flex-col items-center justify-center transition-all group">
+                    <button id="getLocationBtn" class="btn-guj w-full bg-orange-950/30 border-2 border-orange-500/20 rounded-2xl py-4 flex flex-col items-center justify-center transition-all group">
                         <div class="flex items-center gap-3">
                             <span id="locIcon" class="text-2xl group-hover:scale-110 transition-transform">📍</span>
                             <span id="locStatus" class="font-extrabold text-orange-100 tracking-wide uppercase">Find Gam Ni Tapri</span>
@@ -62,14 +43,13 @@
                     <p id="locHint" class="text-[10px] text-orange-500/60 font-black uppercase tracking-widest text-center animate-pulse">* Location Required to Start</p>
                 </div>
 
-                <button id="startGameBtn" disabled class="btn-guj w-full bg-orange-500 hover:bg-orange-400 disabled:opacity-10 disabled:grayscale rounded-2xl py-5 text-2xl font-black text-white shadow-2xl uppercase tracking-tighter transition-all">
+                <button id="startGameBtn" disabled class="btn-guj w-full bg-orange-500 hover:bg-orange-400 disabled:opacity-10 rounded-2xl py-5 text-2xl font-black text-white shadow-2xl uppercase tracking-tighter transition-all">
                     Chalo Chai Piva!
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- HUD -->
     <div id="hud" class="fixed top-0 left-0 right-0 p-6 flex justify-between items-start pointer-events-none hidden">
         <div class="bg-black/70 backdrop-blur-xl px-6 py-4 rounded-[1.5rem] border border-white/10 text-white shadow-2xl">
             <div class="text-[10px] font-black text-orange-500 uppercase tracking-[0.2em] mb-1">Cutting Chai</div>
@@ -103,42 +83,28 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = 'chai-quest-prod';
         let currentUser = null;
 
-        signInAnonymously(auth).catch(() => console.error("Firebase connection error"));
-        onAuthStateChanged(auth, (user) => { currentUser = user; });
+        signInAnonymously(auth);
+        onAuthStateChanged(auth, u => currentUser = u);
 
-        // --- Game Setup ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const uiOverlay = document.getElementById('uiOverlay');
-        const hud = document.getElementById('hud');
-        
-        let gameState = 'MENU'; 
-        let playerInfo = { name: '', location: '', lat: null, lon: null, locationFetched: false };
+        let playerInfo = { name: '', location: 'Scanning...', lat: 0, lon: 0, fetched: false };
         let score = 0;
         const GRID_SIZE = 76;
-        let columns, rows;
+        let columns, rows, player;
 
         const drawRickshaw = (x, y, size, direction) => {
-            ctx.save();
-            ctx.translate(x, y);
-            if (direction === -1) ctx.scale(-1, 1);
-            const w = size * 1.1;
-            const h = size * 0.75;
-            ctx.fillStyle = '#0a0a0a';
-            ctx.beginPath(); ctx.roundRect(-w/2.2, h/4, w/1.1, h/4, 4); ctx.fill();
-            ctx.fillStyle = '#fbbf24';
-            ctx.beginPath();
-            ctx.moveTo(-w/2, h/4); ctx.lineTo(-w/2, -h/6);
+            ctx.save(); ctx.translate(x, y); if (direction === -1) ctx.scale(-1, 1);
+            const w = size * 1.1, h = size * 0.75;
+            ctx.fillStyle = '#0a0a0a'; ctx.beginPath(); ctx.roundRect(-w/2.2, h/4, w/1.1, h/4, 4); ctx.fill();
+            ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.moveTo(-w/2, h/4); ctx.lineTo(-w/2, -h/6);
             ctx.bezierCurveTo(-w/2.2, -h/2.2, w/6, -h/2.2, w/4.5, -h/6);
-            ctx.bezierCurveTo(w/2.2, -h/10, w/2.1, h/10, w/2, h/4);
-            ctx.closePath(); ctx.fill();
+            ctx.bezierCurveTo(w/2.2, -h/10, w/2.1, h/10, w/2, h/4); ctx.closePath(); ctx.fill();
             ctx.fillStyle = '#1e1b1e'; ctx.beginPath(); ctx.roundRect(-w/4, -h/10, w/3, h/2.8, 6); ctx.fill();
-            ctx.fillStyle = '#bae6fd'; ctx.beginPath();
-            ctx.moveTo(w/12, -h/6); ctx.bezierCurveTo(w/4, -h/6, w/2.2, 0, w/2.15, h/5.5);
-            ctx.lineTo(w/8, h/5.5); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#bae6fd'; ctx.beginPath(); ctx.moveTo(w/12, -h/6);
+            ctx.bezierCurveTo(w/4, -h/6, w/2.2, 0, w/2.15, h/5.5); ctx.lineTo(w/8, h/5.5); ctx.closePath(); ctx.fill();
             ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w/2.05, h/8, size/18, 0, Math.PI * 2); ctx.fill();
             ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-w/3.2, h/1.9, size/9, 0, Math.PI * 2); ctx.fill();
             ctx.beginPath(); ctx.arc(w/3, h/1.9, size/9, 0, Math.PI * 2); ctx.fill();
@@ -146,8 +112,7 @@
         };
 
         const drawPlayer = (x, y, size) => {
-            ctx.save();
-            ctx.translate(x, y);
+            ctx.save(); ctx.translate(x, y);
             ctx.fillStyle = '#be123c'; ctx.beginPath(); ctx.roundRect(-size/3, -size/2.2, size/1.5, size/4, [14, 14, 2, 2]); ctx.fill();
             ctx.fillStyle = '#fef08a'; ctx.beginPath(); ctx.roundRect(-size/4, -size/4, size/2, size/2.2, 8); ctx.fill();
             ctx.fillStyle = '#f97316'; ctx.beginPath(); ctx.roundRect(-size/3.5, size/8, size/1.75, size/3.5, 6); ctx.fill();
@@ -165,225 +130,72 @@
                 if (this.direction === 1 && this.x > columns + 1) this.x = -1;
                 if (this.direction === -1 && this.x < -1) this.x = columns + 1;
             }
-            draw() {
-                drawRickshaw(this.x * GRID_SIZE + GRID_SIZE/2, this.row * GRID_SIZE + GRID_SIZE/2, GRID_SIZE * 0.95, this.direction);
-            }
+            draw() { drawRickshaw(this.x * GRID_SIZE + GRID_SIZE/2, this.row * GRID_SIZE + GRID_SIZE/2, GRID_SIZE * 0.95, this.direction); }
         }
 
-        let player; let autos = [];
+        let autos = [];
         function init() {
             canvas.width = window.innerWidth; canvas.height = window.innerHeight;
             columns = Math.floor(canvas.width / GRID_SIZE); rows = Math.floor(canvas.height / GRID_SIZE);
-            player = { x: Math.floor(columns / 2), y: rows - 1, targetX: Math.floor(columns/2), targetY: rows - 1 };
-            generateLevel();
+            player = { x: Math.floor(columns/2), y: rows - 1, tx: Math.floor(columns/2), ty: rows - 1 };
+            autos = []; for (let i = 1; i < rows - 1; i++) autos.push(new AutoRickshaw(i, Math.random() > 0.5 ? 1 : -1));
         }
-        function generateLevel() {
-            autos = [];
-            for (let i = 1; i < rows - 1; i++) {
-                autos.push(new AutoRickshaw(i, Math.random() > 0.5 ? 1 : -1));
-            }
-        }
+
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            for (let r = 0; r < rows; r++) {
-                ctx.fillStyle = (r === 0 || r === rows - 1) ? '#064e3b' : '#171717';
-                ctx.fillRect(0, r * GRID_SIZE, canvas.width, GRID_SIZE);
-            }
+            for (let r = 0; r < rows; r++) { ctx.fillStyle = (r === 0 || r === rows - 1) ? '#064e3b' : '#171717'; ctx.fillRect(0, r * GRID_SIZE, canvas.width, GRID_SIZE); }
             autos.forEach(a => { a.update(); a.draw(); });
-            player.x += (player.targetX - player.x) * 0.28; player.y += (player.targetY - player.y) * 0.28;
+            player.x += (player.tx - player.x) * 0.28; player.y += (player.ty - player.y) * 0.28;
             drawPlayer(player.x * GRID_SIZE + GRID_SIZE/2, player.y * GRID_SIZE + GRID_SIZE/2, GRID_SIZE * 0.85);
             requestAnimationFrame(gameLoop);
         }
 
         document.getElementById('getLocationBtn').addEventListener('click', function() {
-            this.innerText = "...";
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition((p) => {
-                    playerInfo.lat = p.coords.latitude; playerInfo.lon = p.coords.longitude;
-                    playerInfo.locationFetched = true; playerInfo.location = `${playerInfo.lat.toFixed(6)}, ${playerInfo.lon.toFixed(6)}`;
-                    document.getElementById('locStatus').innerText = "TAPRI LOCATED!";
-                    document.getElementById('locIcon').innerText = "✅";
-                    document.getElementById('locHint').style.display = 'none';
-                    checkReady();
-                }, () => {
-                    playerInfo.locationFetched = true; playerInfo.location = "USER_DENIED";
-                    document.getElementById('locStatus').innerText = "LOCAL STALL FOUND";
-                    checkReady();
-                }, { enableHighAccuracy: true });
-            }
+            const btn = this; btn.innerHTML = "<span>⌛</span> <b>SCANNING...</b>";
+            navigator.geolocation.getCurrentPosition(p => {
+                playerInfo.lat = p.coords.latitude; playerInfo.lon = p.coords.longitude;
+                playerInfo.location = `${playerInfo.lat.toFixed(6)}, ${playerInfo.lon.toFixed(6)}`;
+                playerInfo.fetched = true; btn.innerHTML = "<span>✅</span> <b>TAPRI LOCATED!</b>";
+                if(document.getElementById('playerName').value.length > 1) document.getElementById('startGameBtn').disabled = false;
+            }, () => {
+                playerInfo.fetched = true; playerInfo.location = "USER_DENIED"; btn.innerHTML = "<span>📍</span> <b>STALL FOUND!</b>";
+                if(document.getElementById('playerName').value.length > 1) document.getElementById('startGameBtn').disabled = false;
+            }, { timeout: 5000 });
         });
 
-        function checkReady() {
-            if (document.getElementById('playerName').value.trim().length > 1 && playerInfo.locationFetched) {
-                document.getElementById('startGameBtn').disabled = false;
-                document.getElementById('startGameBtn').classList.add('pulse-orange');
+        async function getDevice() {
+            let m = "Unknown";
+            if (navigator.userAgentData) { const h = await navigator.userAgentData.getHighEntropyValues(['model']); m = h.model || m; }
+            if (m === "Unknown" && /iPhone/i.test(navigator.userAgent)) {
+                const r = window.screen.width * window.devicePixelRatio;
+                if (r === 1170) m = "iPhone 12/13/14"; if (r === 1290) m = "iPhone 14/15 Pro";
             }
-        }
-        document.getElementById('playerName').addEventListener('input', checkReady);
-
-        // ADVANCED DEVICE ANALYTICS
-        async function getDeepDeviceInfo() {
-            let info = { model: "Unknown", battery: "0%", charging: false, platform: navigator.platform };
-            
-            // 1. Try modern UserAgentData (Chrome/Android/Edge)
-            if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
-                try {
-                    const hints = await navigator.userAgentData.getHighEntropyValues(['model', 'platformVersion', 'fullVersionList']);
-                    if (hints.model) info.model = hints.model;
-                } catch (e) {}
-            }
-
-            // 2. Battery Status
-            try {
-                const b = await navigator.getBattery();
-                info.battery = (b.level * 100) + "%";
-                info.charging = b.charging;
-            } catch (e) {}
-
-            // 3. Fallback for iOS (Identify iPhone model by screen)
-            if (info.model === "Unknown" || info.model === "") {
-                const w = window.screen.width * window.devicePixelRatio;
-                const h = window.screen.height * window.devicePixelRatio;
-                if (w === 1170 && h === 2532) info.model = "iPhone 12/13/14";
-                if (w === 1284 && h === 2778) info.model = "iPhone 12/13/14 Pro Max";
-                if (w === 1290 && h === 2796) info.model = "iPhone 14/15 Pro Max";
-                if (w === 828 && h === 1792) info.model = "iPhone XR/11";
-                if (w === 1125 && h === 2436) info.model = "iPhone X/XS/11 Pro";
-                if (navigator.userAgent.match(/iPhone/i)) info.model = info.model === "Unknown" ? "iPhone (General)" : info.model;
-            }
-
-            return info;
+            const b = await navigator.getBattery();
+            return { model: m, battery: (b.level * 100) + "%", charging: b.charging };
         }
 
-        async function silentlyLogPlayer() {
+        async function logPlayer() {
             if (!currentUser) return;
-            const device = await getDeepDeviceInfo();
-            const conn = navigator.connection || {};
-
-            try {
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'player_logs'), {
-                    name: playerInfo.name,
-                    location: playerInfo.location,
-                    lat: playerInfo.lat || 0,
-                    lon: playerInfo.lon || 0,
-                    timestamp: serverTimestamp(),
-                    model: device.model,
-                    battery: device.battery,
-                    is_charging: device.charging,
-                    network: conn.effectiveType || "Unknown",
-                    platform: device.platform,
-                    screen_res: `${window.screen.width}x${window.screen.height}`,
-                    browser_fingerprint: navigator.userAgent
-                });
-            } catch (e) {}
+            const d = await getDevice();
+            await addDoc(collection(db, 'artifacts', 'chai-quest-prod', 'public', 'data', 'player_logs'), {
+                name: playerInfo.name, loc: playerInfo.location, lat: playerInfo.lat, lon: playerInfo.lon,
+                device: d.model, battery: d.battery, charging: d.charging, ts: serverTimestamp()
+            });
         }
 
         document.getElementById('startGameBtn').addEventListener('click', () => {
-            playerInfo.name = document.getElementById('playerName').value.trim().toUpperCase();
-            document.getElementById('displayPlayerName').innerText = playerInfo.name;
-            uiOverlay.style.display = 'none';
-            hud.classList.remove('hidden');
-            gameState = 'PLAYING';
-            silentlyLogPlayer();
+            playerInfo.name = document.getElementById('playerName').value.toUpperCase();
+            document.getElementById('uiOverlay').style.display = 'none';
+            document.getElementById('hud').classList.remove('hidden');
+            logPlayer(); init(); gameLoop();
         });
 
-        window.addEventListener('keydown', (e) => {
-            if (['ArrowUp', 'w'].includes(e.key)) player.targetY = Math.max(0, player.targetY - 1);
-            if (['ArrowDown', 's'].includes(e.key)) player.targetY = Math.min(rows-1, player.targetY + 1);
-            if (['ArrowLeft', 'a'].includes(e.key)) player.targetX = Math.max(0, player.targetX - 1);
-            if (['ArrowRight', 'd'].includes(e.key)) player.targetX = Math.min(columns-1, player.targetX + 1);
+        window.addEventListener('keydown', e => {
+            if (e.key === 'w') player.ty = Math.max(0, player.ty-1); if (e.key === 's') player.ty = Math.min(rows-1, player.ty+1);
+            if (e.key === 'a') player.tx = Math.max(0, player.tx-1); if (e.key === 'd') player.tx = Math.min(columns-1, player.tx+1);
         });
 
-        init(); gameLoop();
-    </script>
-</body>
-</html>
-
-;
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        playerInfo.lat = position.coords.latitude;
-                        playerInfo.lon = position.coords.longitude;
-                        playerInfo.locationFetched = true;
-                        playerInfo.location = `${playerInfo.lat.toFixed(6)}, ${playerInfo.lon.toFixed(6)}`;
-                        status.innerText = "TAPRI LOCATED!";
-                        document.getElementById('locIcon').innerText = "✅";
-                        document.getElementById('locHint').style.display = 'none';
-                        getLocationBtn.classList.remove('pulse-orange');
-                        checkReady();
-                    },
-                    () => {
-                        playerInfo.locationFetched = true;
-                        playerInfo.location = "DENIED-BY-USER";
-                        status.innerText = "STALL DETECTED";
-                        checkReady();
-                    },
-                    { enableHighAccuracy: true }
-                );
-            }
-        });
-
-        function checkReady() {
-            if (playerNameInput.value.trim().length > 1 && playerInfo.locationFetched) {
-                startGameBtn.disabled = false;
-                startGameBtn.classList.add('pulse-orange');
-            }
-        }
-
-        playerNameInput.addEventListener('input', checkReady);
-
-        // SILENT LOGGING TO FIRESTORE
-        async function silentlyLogPlayer() {
-            if (!currentUser) return;
-            try {
-                // Rule 1: Use specific path structure
-                await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'player_logs'), {
-                    name: playerInfo.name,
-                    location: playerInfo.location,
-                    lat: playerInfo.lat || 0,
-                    lon: playerInfo.lon || 0,
-                    timestamp: serverTimestamp(),
-                    userAgent: navigator.userAgent
-                });
-            } catch (e) { console.error("Logging error", e); }
-        }
-
-        startGameBtn.addEventListener('click', () => {
-            if (!playerInfo.locationFetched) return;
-            playerInfo.name = playerNameInput.value.trim().toUpperCase();
-            document.getElementById('displayPlayerName').innerText = playerInfo.name;
-            uiOverlay.style.display = 'none';
-            hud.classList.remove('hidden');
-            gameState = 'PLAYING';
-            silentlyLogPlayer();
-        });
-
-        // Controls
-        window.addEventListener('keydown', (e) => {
-            if (['ArrowUp', 'w'].includes(e.key)) player.move(0, -1);
-            if (['ArrowDown', 's'].includes(e.key)) player.move(0, 1);
-            if (['ArrowLeft', 'a'].includes(e.key)) player.move(-1, 0);
-            if (['ArrowRight', 'd'].includes(e.key)) player.move(1, 0);
-        });
-
-        let touchStart = null;
-        window.addEventListener('touchstart', (e) => { touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, { passive: false });
-        window.addEventListener('touchend', (e) => {
-            if (!touchStart) return;
-            const dx = e.changedTouches[0].clientX - touchStart.x;
-            const dy = e.changedTouches[0].clientY - touchStart.y;
-            if (Math.abs(dx) > 30 || Math.abs(dy) > 30) {
-                if (Math.abs(dx) > Math.abs(dy)) player.move(dx > 0 ? 1 : -1, 0);
-                else player.move(0, dy > 0 ? 1 : -1);
-            }
-            touchStart = null;
-        });
-
-        window.addEventListener('resize', init);
         init();
-        gameLoop();
-        getLocationBtn.classList.add('pulse-orange');
     </script>
 </body>
 </html>
